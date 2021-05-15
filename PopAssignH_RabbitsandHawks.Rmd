@@ -1,0 +1,77 @@
+---
+title: "Rabbits & Hawks"
+author: "Hannah Garcia, Kat Leigh, & Anthony Luna"
+date: "5/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Upload packages
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+# Read in function
+source("evolve_pop.R")
+```
+
+```{r}
+# Set up fertility and survivability of rabbits
+# Fertility rates
+F1 = 0
+F2 = 1
+F3 = 3
+F4 = 0.5
+
+# Survivability 
+p1 = 0.8
+p2 = 0.85
+p3 = 0.65
+p4 = 0.1
+
+# Set up initial population parameters
+ini = c(10, 10, 10, 10)
+nyears = 20
+fert_rabbits = c(F1,F2,F3,F4)
+surv_rabbits = c(p1, p2, p3, p4)
+rabbits_pop=evolve_pop(fert_rabbits, surv_rabbits, ini, nyears)
+
+head(rabbits_pop)
+
+# Q1: what is the total rabbit population after 20 years?
+rabbits_pop$poptot # 60,993 rabbits
+
+# Q2: How many young rabbits (first age class) are there in the population at that time?
+# 46,337 rabbits
+
+## ---------------------------------------------------------------------------
+# Extra - plots to visualize rabbit population
+# add year 
+year = seq(from=1, to=nyears)
+rabbits_tot = cbind.data.frame(year=year, poptot=rabbits_pop$poptot)
+ggplot(rabbits_tot, aes(year, poptot))+geom_col()+labs(y="Total Population")
+
+# plot information about ages
+rabbits_ages = cbind.data.frame(year=year, t(rabbits_pop$popbyage))
+rabbits_agesl = rabbits_ages %>% gather(key="agecat", value="pop",-year)
+ggplot(rabbits_agesl, aes(year, pop, fill=agecat))+geom_col()+labs(y="Population", fill="Age Group")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
