@@ -1,0 +1,140 @@
+---
+title: "Assignment_7_leigh_garcia_luna"
+author: "Kat Leigh"
+date: "5/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(sensitivity)
+
+```
+
+# Using Leslie Matrices to evolve a population of rare rabits in an urban park
+- given initially 10 adults allowed to grow for 20 years
+
+```{r}
+source("evolve_pop.R")
+
+# fertility rates
+F1 = 0.0
+F2 = 2
+F3 = 6
+F4 = 1
+
+# survivability - based on mortality rates per thousand per decade
+s1 = .8 
+s2 = .85
+s3 = .65
+s4 = .1
+
+# initial population parameters
+ini = c(0,0,10,0)
+nyears = 20
+fert = c(F1, F2, F3, F4)
+surv = c(s1, s2, s3, s4)
+rabit_pop=evolve_pop(fert, surv, ini, nyears)
+
+head(rabit_pop)
+
+# graph differnt components of the output
+# total population
+
+# add decade 
+yearz = seq(from=1, to=nyears)
+rabit_tot = cbind.data.frame(yearz=yearz, poptot=rabit_pop$poptot)
+
+# plot total population per year
+ggplot(rabit_tot, aes(yearz, poptot))+
+  geom_col()+
+  labs(y="Total Popultation")
+```
+
+```{r}
+# plot total population per year broken down into age classes
+rabit_ages = cbind.data.frame(yearz=yearz, t(rabit_pop$popbyage))
+rabit_agesl = rabit_ages %>% gather(key="agecat", value="pop",-yearz)
+ggplot(rabit_agesl, aes(yearz, pop, fill=agecat))+
+  geom_col()+
+  labs(y="Population", fill="Age Group (years)")+
+  scale_fill_discrete(labels = c("0-1", "1-2", "2-3", "3-4"))
+```
+# find key values: total population & number of young rabits at year 20
+```{r}
+# total population
+tot_pop_20 <- round(rabit_tot$poptot[20],0)
+tot_pop_20
+
+# number of young rabits
+young_20 <- rabit_agesl %>% 
+  filter(agecat == "1",
+         yearz == "20")
+
+young_20_pop <- round(young_20$pop[1],0)  
+young_20_pop
+```
+# how does the rabit population change if hawks are introduced?
+
+- Hawks reduce the survivability of the young and sub-adults age classes to:
+     - between 0.65 and 0.75 for ages 0-1 and
+     - between 0.75 and 0.8 for Ages 1-2.
+- distributions are uniform.
+
+Perform a sensitivity analysis on the survivability of Young Age and Sub-Adults age class parameters. .  Use Sobel to generate variation in the survivability parameters.
+
+```{r}
+
+nsample=200
+
+# create our two samples for Sobel
+# first do our survivability
+ss1 = cbind.data.frame(s1=runif(min=0.65, max=0.75, n=nsample), s2 = runif(min=0.75, max=0.8, n=nsample))
+
+ss2 = cbind.data.frame(s1=runif(min=0.65, max=0.75, n=nsample), s2 = runif(min=0.75, max=0.8, n=nsample))
+
+# get sobel samples
+sens_hawkbits=soboljansen(model = NULL, ss1, ss2, nboot = 100)
+
+head(sens_hawkbits$X)
+nsim=nrow(sens_hawkbits$X)
+
+```
+# problems in this chunk. I thought it was the non-changing values being single numbers, so I created them as lists instead, but that didn't help.
+
+```{r}
+# run the model w/ the sobel values
+
+ini = c(0, 0, 10, 0) # initial population for each age class
+nyears = nyears
+
+# non-changed age class values
+s3 = rep(s3, 200)
+s4 = rep(s4, 200)
+F1 = rep(F1, 200)
+F2 = rep(F2, 200)
+F3 = rep(F3, 200)
+F4 = rep(F4, 200)
+
+# as before combine our application of the the dynamics model - for each
+# parameter set, with code to extract our metric of interest (final population)
+p_wrapper = function(s1=ss1, s2=ss2, s3=s3, s4=s4, F1=F1, F2=F2, F3=F3, F4=F4, use_func, initialpop, nstep) {
+fertility=c(F1,F2,F3, F4)
+survivability= c(s1,s2,s3,s4)
+res = use_func(survivability = survivability, fertility = fertility, initialpop=initialpop, nstep=nstep)
+# now return the final population total
+return(totpop=res$poptot[nstep])
+}
+
+# use pmap here so we can specify rows of our sensitivity analysis parameter object 
+res = as.data.frame(sens_hawkbits$X) %>% pmap_dbl(p_wrapper, initialpop=ini, nstep=nyears, use_func=evolve_pop)
+         
+# plot results (variation in final population across all parameter)
+# ggplot needs a dataframe - so do a quick conversion with data.frame
+ggplot(data.frame(finalpop=res), aes(x=finalpop))+geom_density()
+
+```
+
+
+Then for each parameter set, compute total rabbit population after 20 years.
