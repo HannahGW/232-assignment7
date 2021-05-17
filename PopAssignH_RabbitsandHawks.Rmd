@@ -46,10 +46,10 @@ rabbits_pop=evolve_pop(fert_rabbits, surv_rabbits, ini, nyears)
 head(rabbits_pop)
 
 # q1: what is the total rabbit population after 20 years?
-rabbits_pop$poptot # 60,993 rabbits
+rabbits_pop$poptot # 24,421 rabbits
 
 # q2: how many young rabbits (first age class) are there in the population at that time?
-# 46,337 rabbits
+# 18,371 rabbits <-- this doesn't seem right?
 
 ## ---------------------------------------------------------------------------
 # extra - plots to visualize rabbit population
