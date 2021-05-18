@@ -3,12 +3,12 @@ title: "Rabbits & Hawks"
 author: "Hannah Garcia, Kat Leigh, & Anthony Luna"
 date: "5/15/2021"
 output:
-  html_document:
-    code_folding: show
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
 ```
 
 ```{r}
@@ -18,6 +18,7 @@ library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(ggpubr)
+library(tinytex)
 ```
 
 ```{r}
@@ -25,6 +26,7 @@ library(ggpubr)
 source("evolve_pop.r")
 ```
 
+### Rabbit fertility and survivability over 20 years
 ```{r}
 # set up fertility and survivability of rabbits
 # fertility rates
@@ -53,7 +55,7 @@ tot_pop_20 <- round(rabbits_pop$poptot[20],0)
 tot_pop_20
 
 ## ---------------------------------------------------------------------------
-# extra - plots to visualize rabbit population
+# plots to visualize rabbit population
 # add year 
 year = seq(from=1, to=nyears)
 rabbits_tot = cbind.data.frame(year=year, poptot=rabbits_pop$poptot)
@@ -74,11 +76,7 @@ young_20_pop
 
 ```
 
-
-
-## Sensitivity analysis
-
-
+### Sensitivity analysis
 ```{r sobel-data-setup}
 nsample = 200
 # set up fertility and survivability of rabbits
@@ -116,6 +114,7 @@ nrow(sensitivity_data$X)
 ```
 
 ```{r ad-hoc-function}
+
 p_wrapper_tot = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep) {
   fertility=c(f1,f2,f3,f4)
   survivability= c(p1, p2, p3, p4)
@@ -123,25 +122,17 @@ p_wrapper_tot = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, n
   # return the final population total
   return(finalpop=res$poptot[nstep])
 }
-
 ```
-
 
 ```{r implement-sensitivity-analysis}
 
 nyears=20
 # use pmap here so we can specify rows of our sensitivity analysis parameter object 
 res_tot = as.data.frame(sensitivity_data$X) %>% pmap_dbl(p_wrapper_tot, initialpop=ini, nstep=nyears, use_func=evolve_pop)
-
-
 ```
 
-
-
-
-
+#### Sensitivity results
 ```{r}
-
 # plot results (variation in population at year 20 across survivability of young age and young adult rabbits)
 # ggplot needs a dataframe - so do a quick conversion with data.frame
 ggplot(data.frame(finalpop=res_tot), aes(x=finalpop))+geom_density()
@@ -160,6 +151,7 @@ sens_rabbits=tell(sensitivity_data, res_tot)
 sens_rabbits$S
 sens_rabbits$T
 ```
+
 graph the most sensitive parameter (survivability of young rabbits S-value: `r sens_rabbits$S[5,1]`, T-value of: `r sens_rabbits$T[5,1]`)
 
 ```{r}
