@@ -17,6 +17,7 @@ library(sensitivity)
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
+library(ggpubr)
 ```
 
 ```{r}
@@ -75,11 +76,8 @@ young_20_pop
 
 
 
-## sensitivity analysis
+## Sensitivity analysis
 
-hawks generally only eat  younger rabbits- thus they reduce the survivability of the young and sub-adults age classes (the first two classes).  the estimates are that survivability reduced to between 0.65 and 0.75 for ages 0-1 and between 0.75 and 0.8 for ages 1-2. you can assume that distributions are uniform
-
-plot how total rabbit population after 20 years varies with a) survivability of young age and b) young adult.  also generate a box plot of the variation in total rabbit population.  how does this compare with total rabbit population after 20 years in your original population model (without the hawk related change to survivability)?
 
 ```{r sobel-data-setup}
 nsample = 200
@@ -166,21 +164,34 @@ graph the most sensitive parameter (survivability of young rabbits S-value: `r s
 
 ```{r}
 orig_8 <- data.frame(x=0.8,y=tot_pop_20)
+orig_85 <- data.frame(x=0.85,y=tot_pop_20)
+
 
 tmp = cbind.data.frame(sens_rabbits$X, poptot=sens_rabbits$y)
-ggplot()+
-  geom_point(data=filter(tmp, p2> .845), aes(p1, poptot), color= "mediumseagreen", alpha=.5)+
+p1_plot <- ggplot()+
   geom_point(data=filter(tmp, p2< .845), aes(p1, poptot), color= "black", alpha=.3)+
-  stat_smooth(data=tmp, aes(p1, poptot), se=FALSE, size=1.5, alpha=.7, fullrange = TRUE)+
-  labs(x="Survivability of rabbits aged 0-1",y="Total population after 20 years",
-       caption= str_wrap("The dots depict the predicted total population of rabbits at the end of 20 years when the surviveability of ages 0-1 ranges between 0.65 and 0.75, and the survivability for ages 1-2 is between 0.75 and 0.85 so as to simulate the presence of hawk predation. The central tendancy and trend of the data is indicated by the blue line. The predicted rabbit population without hawks (survivability 0-1 = 0.8, 1-2 = 0.85) is also shown with a triangle. For comparison, all results with the survivability for ages 1-2 roughly equal to 0.85 are colored in seagreen, since this corresponds to the age 1-2 survivability of the no-hawk scenario. Compared to the no-hawk scenario, rabbit populations will be noteably smaller with hawks. In fact, the maximum population size possible with hawk predation is 21,997, which is roughly 40% smaller than without hawks.", 115))+
+  geom_point(data=filter(tmp, p2> .845), aes(p1, poptot), color= "mediumseagreen", alpha=1)+
+  geom_smooth(data=tmp,method="lm",formula=y~poly(x,2),aes(p1, poptot), se=FALSE, size=1.5, alpha=.7, fullrange = TRUE)+
+  labs(x="Survivability of rabbits aged 0-1",y="Total population after 20 years")+
   scale_x_continuous(limits=c(.65,.81))+
   geom_point(data=orig_8, aes(x=x,y=y), color= 'mediumseagreen', fill= 'mediumseagreen', size=3, shape=17)
 
+p2_plot <- ggplot()+
+  geom_point(data=filter(tmp, p1< .745), aes(p2, poptot), color= "black", alpha=.3)+
+  geom_point(data=filter(tmp, p1> .745), aes(p2, poptot), color= "mediumseagreen", alpha=1)+
+  stat_smooth(data=tmp,method="lm",formula=y~poly(x,1), aes(p2, poptot), se=FALSE, size=1.5, alpha=.7, fullrange = TRUE)+
+  labs(x="Survivability of rabbits aged 1-2",y="")+
+  scale_x_continuous(limits=c(.75,.85))+
+  geom_point(data=orig_85, aes(x=x,y=y), color= 'mediumseagreen', fill= 'mediumseagreen', size=3, shape=17)+
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+ggpubr::ggarrange(p1_plot,p2_plot,ncol = 2) %>% 
+  annotate_figure(bottom = text_grob(str_wrap("The dots depict the predicted total population of rabbits at the end of 20 years when the survivability of ages 0-1 ranges between 0.65 and 0.75, and the survivability for ages 1-2 is between 0.75 and 0.85 so as to simulate the presence of hawk predation. The central tendancy and trend of the data is indicated by the blue line - a second order polynomial for young rabbit survivability and a first order polynomial for the sub adult survivability. The predicted rabbit population without hawks (survivability 0-1 = 0.8, 1-2 = 0.85) is also shown with a triangle. For comparison, all results with the survivability for ages 1-2 roughly equal to 0.85 are colored in seagreen, since this corresponds to the age 1-2 survivability of the no-hawk scenario. Compared to the no-hawk scenario, rabbit populations will be noteably smaller with hawks. In fact, the maximum population size possible with hawk predation is 21,997, which is roughly 40% smaller than without hawks.", 115),size = 8))
 ```
 
 
-```{r}
+```{r include=FALSE}
 # Kat's extra funzies young rabbit graph
 
 p_wrapper_young = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep) {
