@@ -2,11 +2,13 @@
 title: "Rabbits & Hawks"
 author: "Hannah Garcia, Kat Leigh, & Anthony Luna"
 date: "5/15/2021"
-output: html_document
+output:
+  html_document:
+    code_folding: show
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
 ```{r}
@@ -46,10 +48,8 @@ rabbits_pop=evolve_pop(fert_rabbits, surv_rabbits, ini, nyears)
 head(rabbits_pop)
 
 # q1: what is the total rabbit population after 20 years?
-rabbits_pop$poptot # 24,421 rabbits
-
-# q2: how many young rabbits (first age class) are there in the population at that time?
-# 18,371 rabbits <-- this doesn't seem right?
+tot_pop_20 <- round(rabbits_pop$poptot[20],0)
+tot_pop_20
 
 ## ---------------------------------------------------------------------------
 # extra - plots to visualize rabbit population
@@ -62,6 +62,14 @@ ggplot(rabbits_tot, aes(year, poptot))+geom_col()+labs(y="total population")
 rabbits_ages = cbind.data.frame(year=year, t(rabbits_pop$popbyage))
 rabbits_agesl = rabbits_ages %>% gather(key="agecat", value="pop",-year)
 ggplot(rabbits_agesl, aes(year, pop, fill=agecat))+geom_col()+labs(y="population", fill="age group")
+
+# q2: how many young rabbits (first age class) are there in the population at that time?
+young_20 <- rabbits_agesl %>% 
+  filter(agecat == "1",
+         year == "20")
+
+young_20_pop <- round(young_20$pop[1],0)  
+young_20_pop
 
 ```
 
@@ -110,13 +118,14 @@ nrow(sensitivity_data$X)
 ```
 
 ```{r ad-hoc-function}
-p_wrapper = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep) {
+p_wrapper_tot = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep) {
   fertility=c(f1,f2,f3,f4)
   survivability= c(p1, p2, p3, p4)
   res = use_func(survivability =survivability, fertility = fertility, initialpop=initialpop, nstep=nstep)
-  # now return the final population total
+  # return the final population total
   return(finalpop=res$poptot[nstep])
 }
+
 ```
 
 
@@ -124,7 +133,9 @@ p_wrapper = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep
 
 nyears=20
 # use pmap here so we can specify rows of our sensitivity analysis parameter object 
-res = as.data.frame(sensitivity_data$X) %>% pmap_dbl(p_wrapper, initialpop=ini, nstep=nyears, use_func=evolve_pop)
+res_tot = as.data.frame(sensitivity_data$X) %>% pmap_dbl(p_wrapper_tot, initialpop=ini, nstep=nyears, use_func=evolve_pop)
+
+
 ```
 
 
@@ -133,24 +144,68 @@ res = as.data.frame(sensitivity_data$X) %>% pmap_dbl(p_wrapper, initialpop=ini, 
 
 ```{r}
 
-# plot results (variation in final population across all parameter)
+# plot results (variation in population at year 20 across survivability of young age and young adult rabbits)
 # ggplot needs a dataframe - so do a quick conversion with data.frame
-ggplot(data.frame(finalpop=res), aes(x=finalpop))+geom_density()
+ggplot(data.frame(finalpop=res_tot), aes(x=finalpop))+geom_density()
 
-# or a boxplot
-ggplot(data.frame(finalpop=res), aes(x="", y=finalpop/1000) )+geom_boxplot(fill="blue")+
+# most of the values result in populations less than 15,000 rabbits
+
+# boxplot of the same data
+ggplot(data.frame(finalpop=res_tot), aes(x="", y=finalpop/1000) )+geom_boxplot(fill="blue")+
   theme(axis.title.x = element_blank())+labs(y="Final Pop (in 1000s)")
 
 # give our results to sensitivity structure
 
-sens_micro=tell(sensitivity_data, res)
+sens_rabbits=tell(sensitivity_data, res_tot)
 
 # look at results
-sens_micro$S
-sens_micro$T
+sens_rabbits$S
+sens_rabbits$T
+```
+graph the most sensitive parameter (survivability of young rabbits S-value: `r sens_rabbits$S[5,1]`, T-value of: `r sens_rabbits$T[5,1]`)
 
-# graph the most sensitive parameter
-tmp = cbind.data.frame(sens_micro$X, pop1=sens_micro$y)
-ggplot(tmp, aes(p1, pop1))+geom_point()+labs(x="Survivability of rabbits aged 0-1",y="Population after 20 years")
+```{r}
+orig_8 <- data.frame(x=0.8,y=tot_pop_20)
+
+tmp = cbind.data.frame(sens_rabbits$X, poptot=sens_rabbits$y)
+ggplot()+
+  geom_point(data=filter(tmp, p2> .845), aes(p1, poptot), color= "mediumseagreen", alpha=.5)+
+  geom_point(data=filter(tmp, p2< .845), aes(p1, poptot), color= "black", alpha=.3)+
+  stat_smooth(data=tmp, aes(p1, poptot), se=FALSE, size=1.5, alpha=.7, fullrange = TRUE)+
+  labs(x="Survivability of rabbits aged 0-1",y="Total population after 20 years",
+       caption= str_wrap("The dots depict the predicted total population of rabbits at the end of 20 years when the surviveability of ages 0-1 ranges between 0.65 and 0.75, and the survivability for ages 1-2 is between 0.75 and 0.85 so as to simulate the presence of hawk predation. The central tendancy and trend of the data is indicated by the blue line. The predicted rabbit population without hawks (survivability 0-1 = 0.8, 1-2 = 0.85) is also shown with a triangle. For comparison, all results with the survivability for ages 1-2 roughly equal to 0.85 are colored in seagreen, since this corresponds to the age 1-2 survivability of the no-hawk scenario. Compared to the no-hawk scenario, rabbit populations will be noteably smaller with hawks. In fact, the maximum population size possible with hawk predation is 21,997, which is roughly 40% smaller than without hawks.", 115))+
+  scale_x_continuous(limits=c(.65,.81))+
+  geom_point(data=orig_8, aes(x=x,y=y), color= 'mediumseagreen', fill= 'mediumseagreen', size=3, shape=17)
+
 ```
 
+
+```{r}
+# Kat's extra funzies young rabbit graph
+
+p_wrapper_young = function(p1, p2, p3, p4, f1, f2, f3, f4, use_func, initialpop, nstep) {
+  fertility=c(f1,f2,f3,f4)
+  survivability= c(p1, p2, p3, p4)
+  res = use_func(survivability =survivability, fertility = fertility, initialpop=initialpop, nstep=nstep)
+  # return the young population total
+  return(popbyage=res$popbyage[1,nstep])
+}
+
+res_young = as.data.frame(sensitivity_data$X) %>% pmap_dbl(p_wrapper_young, initialpop=ini, nstep=nyears, use_func=evolve_pop)
+
+# give our young rabbit results to our sensitivity structure
+sens_youngbits=tell(sensitivity_data, res_young)
+
+orig_8 <- data.frame(x=0.8,y=young_20_pop)
+
+tmp = cbind.data.frame(sens_youngbits$X, pop1=sens_youngbits$y)
+ggplot()+
+  geom_point(data=filter(tmp, p2> .845), aes(p1, pop1), color= "mediumseagreen", alpha=.5)+
+  geom_point(data=filter(tmp, p2< .845), aes(p1, pop1), color= "black", alpha=.3)+
+  stat_smooth(data=tmp, aes(p1, pop1), se=FALSE, size=1.5, alpha=.7, fullrange = TRUE)+
+  labs(x="Survivability of rabbits aged 0-1",y="Young rabbit population after 20 years",
+       caption=str_wrap("The dots depict the predicted total population of young rabbits at the end of 20 years when the surviveability of ages 0-1 ranges between 0.65 and 0.75, and the survivability for ages 1-2 is between 0.75 and 0.85 so as to simulate the presence of hawk predation. The central tendancy and trend of the data is indicated by the blue line. The predicted young rabbit population without hawks (survivability 0-1 = 0.8, 1-2 = 0.85) is also shown with a triangle. For comparison, all results with the survivability for ages 1-2 roughly equal to 0.85 are colored in seagreen, since this corresponds to the age 1-2 survivability of the no-hawk scenario. Compared to the no-hawk scenario, young rabbit populations will tend to be smaller with hawks.", 115))+
+  scale_x_continuous(limits=c(.65,.81))+
+  geom_point(data=orig_8, aes(x=x,y=y), color= 'mediumseagreen', fill= 'mediumseagreen', size=3, shape=17)
+```
+ 
